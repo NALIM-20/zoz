@@ -1,10 +1,9 @@
-// Tvoj API kľúč vložený priamo do premennej
 const GEMINI_API_KEY = "AIzaSyBfHhfBZ1yteULh8PYWkrj9LMw5IdVfaPQ";
 
 const users = [
-    { id: 1, name: "Anna", bio: "Milujem kávu a programovanie v JavaScripte." },
-    { id: 2, name: "Michal", bio: "Horský vodca, ktorý hľadá parťáka na túry." },
-    { id: 3, name: "AI Bot", bio: "Som pokročilá umelá inteligencia. Pýtaj sa ma na čokoľvek." }
+    { id: 1, name: "Anna", bio: "Milujem kávu, knihy a cestovanie. Hľadám niekoho na pokec." },
+    { id: 2, name: "Michal", bio: "Športovec telom aj dušou. Ak nelyžujem, som v posilke." },
+    { id: 3, name: "Cyber Ema", bio: "Som futuristická AI. Viem všetko o vesmíre a technológiách." }
 ];
 
 let activeUser = null;
@@ -15,7 +14,7 @@ const inputArea = document.getElementById('input-area');
 const userInput = document.getElementById('user-input');
 const sendBtn = document.getElementById('send-btn');
 
-// 1. Vykreslenie zoznamu ľudí
+// 1. Inicializácia zoznamu
 users.forEach(user => {
     const div = document.createElement('div');
     div.className = 'user-item';
@@ -29,31 +28,29 @@ users.forEach(user => {
     userList.appendChild(div);
 });
 
-// 2. Otvorenie chatu
 function openChat() {
     document.getElementById('chat-header').innerText = `Chat s: ${activeUser.name}`;
     messagesDiv.innerHTML = '';
-    inputArea.classList.remove('hidden'); // Odstráni classu, ktorá schováva input
-    inputArea.style.display = 'flex';     // Poistka, aby bol input vidieť
-    addMessage(`Ahoj, ja som ${activeUser.name}. O čom si popíšeme?`, 'ai');
+    inputArea.classList.add('visible');
+    addMessage(`Ahoj! Ja som ${activeUser.name}. Čo máš nové?`, 'ai');
 }
 
-// 3. Pomocná funkcia na pridanie bubliny
 function addMessage(text, type) {
     const m = document.createElement('div');
     m.className = `msg ${type}-msg`;
     m.innerText = text;
     messagesDiv.appendChild(m);
     messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    return m; // Vrátime element, ak by sme ho chceli neskôr zmazať
+    return m;
 }
 
-// 4. Volanie Gemini API
+// 2. HLAVNÁ FUNKCIA PRE GEMINI
 async function askGemini(message) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    // Skúsime verziu v1, ak nepôjde, prepíš v URL "v1" na "v1beta"
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     
-    const promptText = `Hráš rolu osoby na zoznamke. Tvoje meno je ${activeUser.name}. 
-    Tvoj popis: ${activeUser.bio}. Odpovedaj na túto správu krátko, neformálne a po slovensky: ${message}`;
+    const promptText = `Si na zoznamke. Tvoje meno je ${activeUser.name}. 
+    Tvoj charakter: ${activeUser.bio}. Odpovedaj na túto správu krátko, neformálne a slovensky: ${message}`;
 
     try {
         const response = await fetch(url, {
@@ -65,34 +62,38 @@ async function askGemini(message) {
         });
 
         const data = await response.json();
+
         if (data.error) {
-            return "Mám chybu v hlave: " + data.error.message;
+            console.error(data.error);
+            return "Chyba API: " + data.error.message;
         }
-        return data.candidates[0].content.parts[0].text;
+
+        if (data.candidates && data.candidates[0].content) {
+            return data.candidates[0].content.parts[0].text;
+        } else {
+            return "Zaujímavé... skús mi napísať niečo iné.";
+        }
     } catch (err) {
-        return "Nepodarilo sa mi pripojiť k mozgu (skontroluj internet).";
+        return "Ups, niekde nastala chyba v spojení.";
     }
 }
 
-// 5. Akcia po kliknutí na Odoslať
+// 3. Obsluha tlačidla
 sendBtn.onclick = async () => {
     const text = userInput.value.trim();
-    if (text) {
-        addMessage(text, 'user'); // Pridá tvoju správu
-        userInput.value = '';
+    if (!text) return;
 
-        // Zobrazenie indikátora písania
-        const typingIndicator = addMessage(`${activeUser.name} píše...`, 'ai');
+    addMessage(text, 'user');
+    userInput.value = '';
 
-        const aiReply = await askGemini(text);
-        
-        // Odstránime indikátor a pridáme reálnu odpoveď
-        messagesDiv.removeChild(typingIndicator);
-        addMessage(aiReply, 'ai');
-    }
+    const typing = addMessage(`${activeUser.name} píše...`, 'ai');
+
+    const aiReply = await askGemini(text);
+    
+    messagesDiv.removeChild(typing);
+    addMessage(aiReply, 'ai');
 };
 
-// Povolenie odosielania Enterom
 userInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') sendBtn.click();
 });
