@@ -1,53 +1,49 @@
-const users = [
-    { id: 1, name: "Anna", bio: "Milujem kávu.", replies: ["Skvelé!", "Povedz mi viac.", "Zaujímavé."] },
-    { id: 2, name: "Michal", bio: "Rád športujem.", replies: ["Dnes som bol behať.", "Máš rád šport?", "To je super!"] },
-    { id: 3, name: "AI Bot", bio: "Vždy k dispozícii.", replies: ["Spracovávam tvoju správu...", "Rozumiem ti.", "Som tu pre teba."] }
-];
+const GEMINI_API_KEY = "AIzaSyBfHhfBZ1yteULh8PYWkrj9LMw5IdVfaPQ";
 
-let activeUser = null;
+async function askGemini(message, userProfile) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    
+    // Pripravíme inštrukciu pre AI, aby vedela, za koho má hrať
+    const prompt = `Hraj rolu osoby na zoznamke. Tvoje meno je ${userProfile.name}. 
+                    Tvoj popis je: ${userProfile.bio}. 
+                    Tu je správa od používateľa: "${message}". 
+                    Odpovedaj krátko, neformálne a slovensky.`;
 
-const userList = document.getElementById('user-list');
-const messagesDiv = document.getElementById('messages');
-const inputArea = document.getElementById('input-area');
-const userInput = document.getElementById('user-input');
-
-// Vykreslenie používateľov
-users.forEach(user => {
-    const div = document.createElement('div');
-    div.className = 'user-item';
-    div.innerHTML = `<strong>${user.name}</strong><br><small>${user.bio}</small>`;
-    div.onclick = () => {
-        activeUser = user;
-        document.querySelectorAll('.user-item').forEach(el => el.classList.remove('active'));
-        div.classList.add('active');
-        openChat();
+    const data = {
+        contents: [{ parts: [{ text: prompt }] }]
     };
-    userList.appendChild(div);
-});
 
-function openChat() {
-    document.getElementById('chat-header').innerText = `Chat s: ${activeUser.name}`;
-    messagesDiv.innerHTML = '';
-    inputArea.classList.remove('hidden');
-    addMessage(`Ahoj, ja som ${activeUser.name}! Ako sa máš?`, 'ai');
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data)
+        });
+        const json = await response.json();
+        return json.candidates[0].content.parts[0].text;
+    } catch (error) {
+        console.error("Chyba:", error);
+        return "Prepáč, stratila som spojenie (skontroluj API kľúč).";
+    }
 }
 
-function addMessage(text, type) {
-    const m = document.createElement('div');
-    m.className = `msg ${type}-msg`;
-    m.innerText = text;
-    messagesDiv.appendChild(m);
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-document.getElementById('send-btn').onclick = () => {
+// Úprava funkcie pri kliknutí na Odoslať
+document.getElementById('send-btn').onclick = async () => {
     const text = userInput.value.trim();
     if (text) {
         addMessage(text, 'user');
         userInput.value = '';
-        setTimeout(() => {
-            const reply = activeUser.replies[Math.floor(Math.random() * activeUser.replies.length)];
-            addMessage(reply, 'ai');
-        }, 1000);
+        
+        // Zobrazíme "AI premýšľa" (voliteľné)
+        const loadingMsg = "Píše...";
+        addMessage(loadingMsg, 'ai');
+
+        const aiReply = await askGemini(text, activeUser);
+        
+        // Odstránime poslednú "loading" správu a pridáme reálnu
+        const messages = document.getElementById('messages');
+        messages.removeChild(messages.lastChild);
+        
+        addMessage(aiReply, 'ai');
     }
 };
